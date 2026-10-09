@@ -1,0 +1,34 @@
+# Overlay of the benchmark's src/Dockerfile (the benchmark is vendored unchanged in app/).
+# What differs from upstream:
+# - the COPY sources point into app/src/ (this folder is the build context);
+# - on a Debian jessie, stretch, buster or bullseye base, apt reads archive.debian.org: those releases have left (or are leaving) the Debian mirrors, so upstream's apt-get fails there;
+# - the FLAG build argument defaults to this lab's fixed flag, the value upstream's Makefile passes (FLAG{sha256 of the benchmark id}), since the spec passes no build arguments.
+# Everything else is upstream's, line for line.
+
+FROM php:7.4-fpm
+RUN . /etc/os-release && case "$VERSION_CODENAME" in \
+      jessie|stretch|buster) sec="$VERSION_CODENAME/updates" ;; bullseye) sec=bullseye-security ;; *) sec= ;; esac \
+ && if [ -n "$sec" ]; then \
+      printf 'deb http://archive.debian.org/debian %s main\ndeb http://archive.debian.org/debian-security %s main\n' \
+        "$VERSION_CODENAME" "$sec" > /etc/apt/sources.list && rm -f /etc/apt/sources.list.d/* \
+      && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99archive; fi
+
+RUN docker-php-ext-install mysqli pdo_mysql
+
+RUN apt-get update && apt-get install -y nginx
+
+RUN rm /etc/nginx/sites-enabled/default
+
+COPY app/src/nginx.conf /etc/nginx/sites-enabled/
+
+COPY app/src/app/ /var/www/html/
+
+COPY app/src/flag.txt /var/www/
+
+ARG FLAG=FLAG{5ad32e4112f0e82f618951901ae9579c3d9926d8666316a3f9e49ff868fd5d24}
+
+RUN sed -i s/@FLAG@/$FLAG/g /var/www/flag.txt
+
+EXPOSE 80
+
+CMD service nginx start && php-fpm
