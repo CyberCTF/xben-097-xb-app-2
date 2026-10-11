@@ -32,3 +32,10 @@ RUN sed -i s/@FLAG@/$FLAG/g /var/www/flag.txt
 EXPOSE 80
 
 CMD service nginx start && php-fpm
+
+# CyberCTF per-player flag: the flag above is only the development fallback. ctf-entrypoint.sh
+# puts the player's flag (CTF_FLAG_MAIN) in its place at every start, then runs the original
+# entrypoint and command, repeated here unchanged.
+COPY ctf-entrypoint.sh /usr/local/bin/ctf-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/ctf-entrypoint.sh", "docker-php-entrypoint"]
+CMD ["/bin/sh", "-c", "service nginx start && php-fpm"]
